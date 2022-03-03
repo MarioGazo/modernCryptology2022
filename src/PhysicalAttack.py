@@ -1,4 +1,5 @@
-import numpy as np
+from numpy import array, zeros
+from math import sqrt
 
 
 class PhysicalAttack:
@@ -7,15 +8,15 @@ class PhysicalAttack:
     """
 
     """ Input file locations """
-    __input_file: str = r'data/inputs5.dat'
-    __trace_file: str = r'data/T5.dat'
+    IN_file: str = r'data/inputs5.dat'
+    T_file: str = r'data/T5.dat'
 
     """ Input file contents """
-    __input: np.array
-    __trace: np.array
+    IN: array
+    T: array
 
     """ AES S-Box """
-    S = [
+    S: list = [
         0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
         0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
         0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
@@ -34,19 +35,78 @@ class PhysicalAttack:
         0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
     ]
 
+    """ H table """
+    H: array = zeros([256, 600])
+
+    """ Correlation coefficients """
+    C: array = zeros([256, 55])
+
     def __init__(self):
-        self.read_data()
+        """ Perform the DPA attack """
+        self.__read_data()
+        self.__construct_h()
+        self.__correlation()
+        self.__result()
 
-    def read_data(self):
+    def __read_data(self) -> None:
         """ Read input data """
-        with open(self.__input_file) as file:
-            self.__input = np.array([int(num.strip()) for num in file.read().split(',')])
 
-        with open(self.__trace_file) as file:
-            self.__trace = np.array([[float(num) for num in line.strip().split(',')] for line in file.readlines()])
+        # Read the file with the AES inputs
+        with open(self.IN_file) as file:
+            self.IN = array([int(num.strip()) for num in file.read().split(',')])
 
-    def dump_data(self):
-        """ Print out the data for debugging purposes """
-        print(self.__input)
-        print(self.__trace)
+        # Read the file with the AES traces for the inputs
+        with open(self.T_file) as file:
+            self.T = array(
+                [[float(num) for num in line.strip().split(',')] for line in file.readlines()]
+            ).transpose()
 
+    def __construct_h(self) -> None:
+        """ Construct the H table """
+
+        def __hamming(byte) -> int:
+            """ Calculate the Hamming weight (the amount of 1s) of a byte """
+            if 0 > byte > 255:
+                raise Exception("The byte has to be in <0,255>")
+
+            return sum([byte & (1 << x) > 0 for x in range(8)])
+
+        # Go through all the inputs and mix then with all the possible keys
+        for i, item in enumerate(self.IN):
+            for j in range(256):
+                self.H[j][i] = __hamming(self.S[item ^ j])
+
+    def __correlation(self) -> None:
+        """ Calculate the correlation between H and T rows """
+
+        def __pearson(h: array, t: array) -> float:
+            """ Pearson correlation coefficient calculation """
+            if len(h) != len(t):
+                raise Exception("The samples have to be of the same length")
+
+            # Get means
+            avg_h, avg_t = h.mean(), t.mean()
+
+            # Split the formula into multiple sub-problems
+            nom = sum([(x - avg_h) * (y - avg_t) for (x, y) in zip(h, t)])
+            denom_h = sum([pow(x - avg_h, 2) for x in h])
+            denom_t = sum([pow(x - avg_t, 2) for x in t])
+
+            # Mix the sub-problems
+            return nom / sqrt(denom_h * denom_t)
+
+        # Go through the rows and find correlation
+        for j, row_H in enumerate(self.H):  # 256
+            for i, row_T in enumerate(self.T):  # 55
+                self.C[j][i] = __pearson(row_H, row_T)
+
+    def __result(self) -> None:
+        """ Get the result based on the correlation coefficients """
+        data = []
+        for row in self.C:
+            max_value = max(row)
+            max_index = list(row).index(max_value)
+            data.append((max_value, max_index))
+
+        data.sort(key=lambda val: val[0], reverse=True)
+        print(data[0])
