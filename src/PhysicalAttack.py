@@ -37,6 +37,18 @@ class PhysicalAttack:
     def __init__(self):
         self.read_data()
 
+    def byterotate(x, shuffle="c56b90ad3ef84712"):
+		S = ("0123456789abcdef", shuffle)
+		idx=S[0].find(x)
+		return eval("0x"+S[1][idx])
+
+	def hamming(x):
+		c = 0
+		while x:
+		    c += 1
+		    x &= x - 1
+		return c
+
     def read_data(self):
         """ Read input data """
         with open(self.__input_file) as file:
