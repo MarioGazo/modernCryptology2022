@@ -10,3 +10,6 @@ from src.PhysicalAttack import PhysicalAttack
 
 if __name__ == '__main__':
     physicalAttack = PhysicalAttack()
+    key = physicalAttack.get_key()
+    print(f"Key byte: {hex(key[0])} ({key[0]})")
+    print(f"Probability: {round(key[1] * 100)}%")

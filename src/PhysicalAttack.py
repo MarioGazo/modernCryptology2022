@@ -1,22 +1,30 @@
+"""
+Assignment 2 for 02255 Modern Cryptology Spring 2022 at DTU
+DPA attack on AES encryption algorithm
+
+Authors:
+    - Mário Gažo (s212698@student.dtu.dk)
+    - Paul Gerard R Seghers (s191675@student.dtu.dk)
+"""
 from numpy import array, zeros
 from math import sqrt
 
 
 class PhysicalAttack:
     """
-    This class represents attack to perform using physical parameters of a device
+    Attacks AES block cypher using physical parameters of the device
     """
 
     """ Input file locations """
-    IN_file: str = r'data/inputs5.dat'
-    T_file: str = r'data/T5.dat'
+    __IN_file: str = r'data/inputs5.dat'
+    __T_file: str = r'data/T5.dat'
 
     """ Input file contents """
-    IN: array
-    T: array
+    __IN: array
+    __T: array
 
     """ AES S-Box """
-    S: list = [
+    __S: list = [
         0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
         0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
         0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
@@ -36,28 +44,24 @@ class PhysicalAttack:
     ]
 
     """ H table """
-    H: array = zeros([256, 600])
+    __H: array = zeros([256, 600])
 
     """ Correlation coefficients """
-    C: array = zeros([256, 55])
+    __C: array = zeros([256, 55])
 
-    def __init__(self):
-        """ Perform the DPA attack """
-        self.__read_data()
-        self.__construct_h()
-        self.__correlation()
-        self.__result()
+    """ Most probable key byte and it's probability """
+    __key: tuple = (0, 0)
 
     def __read_data(self) -> None:
         """ Read input data """
 
         # Read the file with the AES inputs
-        with open(self.IN_file) as file:
-            self.IN = array([int(num.strip()) for num in file.read().split(',')])
+        with open(self.__IN_file) as file:
+            self.__IN = array([int(num.strip()) for num in file.read().split(',')])
 
         # Read the file with the AES traces for the inputs
-        with open(self.T_file) as file:
-            self.T = array(
+        with open(self.__T_file) as file:
+            self.__T = array(
                 [[float(num) for num in line.strip().split(',')] for line in file.readlines()]
             ).transpose()
 
@@ -72,9 +76,9 @@ class PhysicalAttack:
             return sum([byte & (1 << x) > 0 for x in range(8)])
 
         # Go through all the inputs and mix then with all the possible keys
-        for i, item in enumerate(self.IN):
+        for i, item in enumerate(self.__IN):
             for j in range(256):
-                self.H[j][i] = __hamming(self.S[item ^ j])
+                self.__H[j][i] = __hamming(self.__S[item ^ j])
 
     def __correlation(self) -> None:
         """ Calculate the correlation between H and T rows """
@@ -96,17 +100,26 @@ class PhysicalAttack:
             return nom / sqrt(denom_h * denom_t)
 
         # Go through the rows and find correlation
-        for j, row_H in enumerate(self.H):  # 256
-            for i, row_T in enumerate(self.T):  # 55
-                self.C[j][i] = __pearson(row_H, row_T)
+        for j, row_H in enumerate(self.__H):  # 256
+            for i, row_T in enumerate(self.__T):  # 55
+                self.__C[j][i] = __pearson(row_H, row_T)
 
-    def __result(self) -> None:
+    def __calculate_result(self):
         """ Get the result based on the correlation coefficients """
-        data = []
-        for row in self.C:
-            max_value = max(row)
-            max_index = list(row).index(max_value)
-            data.append((max_value, max_index))
 
-        data.sort(key=lambda val: val[0], reverse=True)
-        print(data[0])
+        # Find the most probable byte
+        self.__C = self.__C.transpose()
+        for row in self.__C:
+            max_value = max(row)
+            # Uncomment to see al the most probable key for each sample
+            # print((list(row).index(max_value), max_value))
+            if max_value > self.__key[1]:
+                self.__key = (list(row).index(max_value), max_value)
+
+    def get_key(self) -> tuple:
+        """ Performs the DPA attack and returns the most probable key byte """
+        self.__read_data()
+        self.__construct_h()
+        self.__correlation()
+        self.__calculate_result()
+        return self.__key
