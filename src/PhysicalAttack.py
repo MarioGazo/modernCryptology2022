@@ -102,7 +102,7 @@ class PhysicalAttack:
         # Go through the rows and find correlation
         for j, row_H in enumerate(self.__H):  # 256
             for i, row_T in enumerate(self.__T):  # 55
-                self.__C[j][i] = __pearson(row_H, row_T)
+                self.__C[j][i] = abs(__pearson(row_H, row_T))
 
     def __calculate_result(self):
         """ Get the result based on the correlation coefficients """
@@ -112,7 +112,6 @@ class PhysicalAttack:
         for row in self.__C:
             max_value = max(row)
             # Uncomment to see al the most probable key for each sample
-            # print((list(row).index(max_value), max_value))
             if max_value > self.__key[1]:
                 self.__key = (list(row).index(max_value), max_value)
 
