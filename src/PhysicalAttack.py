@@ -16,8 +16,8 @@ class PhysicalAttack:
     """
 
     """ Input file locations """
-    __IN_file: str = r'data/inputs5.dat'
-    __T_file: str = r'data/T5.dat'
+    __IN_file: str = r'data/inputs3.dat'
+    __T_file: str = r'data/T3.dat'
 
     """ Input file contents """
     __IN: array
@@ -47,7 +47,7 @@ class PhysicalAttack:
     __H: array = zeros([256, 600])
 
     """ Correlation coefficients """
-    __C: array = zeros([256, 55])
+    __C: array = zeros([256, 100])
 
     """ Most probable key byte and it's probability """
     __key: tuple = (0, 0)
